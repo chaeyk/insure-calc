@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>연금보험 예금 비교 계산기</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="workspace">
+        <header class="masthead">
+          <div>
+            <p class="eyebrow">Pension vs Deposit</p>
+            <h1>연금보험 예금 비교 계산기</h1>
+          </div>
+        </header>
+
+        <section class="panel input-panel" aria-label="입력">
+          <div class="panel-head">
+            <h2>조건 입력</h2>
+            <button id="resetButton" class="icon-button" type="button" title="기본값 복원" aria-label="기본값 복원">
+              ↺
+            </button>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              <span>월 납입액</span>
+              <div class="field">
+                <input id="monthlyPremium" type="number" min="0" step="10000" value="1000000" />
+                <em>원</em>
+              </div>
+            </label>
+
+            <label>
+              <span>연금보험 월 수령액</span>
+              <div class="field">
+                <input id="insurancePayout" type="number" min="0" step="10000" value="1147500" />
+                <em>원</em>
+              </div>
+            </label>
+
+            <label>
+              <span>납입 시작 나이</span>
+              <div class="field">
+                <input id="payStartAge" type="number" min="0" step="1" value="46" />
+                <em>세</em>
+              </div>
+            </label>
+
+            <label>
+              <span>납입 기간</span>
+              <div class="field">
+                <input id="payYears" type="number" min="1" step="1" value="10" />
+                <em>년</em>
+              </div>
+            </label>
+
+            <label>
+              <span>수령 시작 나이</span>
+              <div class="field">
+                <input id="receiveStartAge" type="number" min="0" step="1" value="66" />
+                <em>세</em>
+              </div>
+            </label>
+
+            <label>
+              <span>수령 종료 나이</span>
+              <div class="field">
+                <input id="receiveEndAge" type="number" min="0" step="1" value="100" />
+                <em>세</em>
+              </div>
+            </label>
+
+            <label>
+              <span>비교 예금 금리</span>
+              <div class="field">
+                <input id="depositRate" type="number" min="0" step="0.1" value="3.5" />
+                <em>%</em>
+              </div>
+            </label>
+
+            <label>
+              <span>예금 이자세</span>
+              <div class="field">
+                <input id="taxRate" type="number" min="0" max="100" step="0.1" value="15" />
+                <em>%</em>
+              </div>
+            </label>
+          </div>
+          <p id="validationMessage" class="validation" role="status"></p>
+        </section>
+
+        <section class="results-stack" aria-label="계산 결과">
+          <section class="result-section">
+            <h2>핵심 판단</h2>
+            <div class="results-grid one-up">
+              <article class="metric primary">
+                <span>연금보험과 같아지는 예금 금리</span>
+                <strong id="equivalentRate">-</strong>
+                <p>같은 납입, 같은 월 수령액, 같은 종료 나이를 기준으로 역산</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="result-section">
+            <h2>총액 비교</h2>
+            <div class="results-grid three-up">
+              <article class="metric">
+                <span>총 납입액</span>
+                <strong id="totalPaid">-</strong>
+                <p id="totalPaidDetail">연금보험과 예금 동일 기준</p>
+              </article>
+              <article class="metric">
+                <span>연금보험 총 수령액</span>
+                <strong id="insuranceTotalReceived">-</strong>
+                <p id="insuranceTotalDetail">비과세 기준</p>
+              </article>
+              <article class="metric">
+                <span>예금 총 수령액</span>
+                <strong id="depositTotalReceived">-</strong>
+                <p id="depositTotalDetail">비교 예금 금리와 세후 이자 기준</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="result-section">
+            <h2>수령 시작 시점 재원</h2>
+            <div class="results-grid three-up">
+              <article class="metric">
+                <span>연금보험 환산 수령 시작 잔액</span>
+                <strong id="insuranceReserve">-</strong>
+                <p id="insuranceReserveDetail">환산 예금 금리 기준</p>
+              </article>
+              <article class="metric">
+                <span>예금 수령 시작 잔액</span>
+                <strong id="depositStartBalance">-</strong>
+                <p id="depositStartBalanceDetail">납입과 예치 후 세후 잔액</p>
+              </article>
+              <article class="metric">
+                <span>수령 시작 시점 차이</span>
+                <strong id="reserveGap">-</strong>
+                <p id="reserveGapDetail">예금 잔액 - 연금보험 환산 잔액</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="result-section">
+            <h2>예금 시뮬레이션</h2>
+            <div class="results-grid two-up">
+              <article class="metric">
+                <span>연금보험과 같은 금액을 받으면</span>
+                <strong id="depletionAge">-</strong>
+                <p id="depletionDetail">비교 예금 금리 기준</p>
+              </article>
+              <article class="metric">
+                <span>같은 종료 나이에 맞춘 예금 월 수령액</span>
+                <strong id="matchedDepositPayout">-</strong>
+                <p id="matchedDetail">비교 예금 금리 기준</p>
+              </article>
+            </div>
+          </section>
+        </section>
+
+        <section class="panel chart-panel" aria-label="잔액 추이">
+          <div class="panel-head">
+            <h2>수령 재원 및 예금 잔액 추이</h2>
+            <div class="legend">
+              <span><i class="line-a"></i>예금 잔액</span>
+              <span><i class="line-b"></i>연금보험 환산 잔액</span>
+            </div>
+          </div>
+          <svg id="balanceChart" viewBox="0 0 900 320" role="img" aria-label="수령 재원 및 예금 잔액 추이 그래프"></svg>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
