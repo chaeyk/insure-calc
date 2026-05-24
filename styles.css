@@ -233,6 +233,14 @@ input {
   overflow-wrap: anywhere;
 }
 
+.metric strong.loss {
+  color: #b42318;
+}
+
+.metric strong.gain {
+  color: #1d4ed8;
+}
+
 .chart-panel {
   padding: 22px;
 }

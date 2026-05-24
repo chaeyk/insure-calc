@@ -51,20 +51,32 @@ const number = new Intl.NumberFormat("ko-KR", {
 });
 
 function readValues() {
-  return Object.fromEntries(ids.map((id) => [id, Number(inputs[id].value)]));
+  return Object.fromEntries(
+    ids.map((id) => {
+      const rawValue = inputs[id].value.trim();
+      return [id, rawValue === "" ? null : Number(rawValue)];
+    }),
+  );
 }
 
 function validate(v) {
   const payEndAge = v.payStartAge + v.payYears;
-  if (Object.values(v).some((value) => !Number.isFinite(value))) return "모든 값을 숫자로 입력하세요.";
+  const requiredValues = ids.filter((id) => id !== "deathAge").map((id) => v[id]);
+  if (requiredValues.some((value) => !Number.isFinite(value))) return "사망 가정 나이를 제외한 모든 값을 숫자로 입력하세요.";
   if (v.monthlyPremium <= 0 || v.insurancePayout <= 0) return "월 납입액과 월 수령액은 0보다 커야 합니다.";
   if (v.payYears <= 0) return "납입 기간은 1년 이상이어야 합니다.";
   if (v.receiveStartAge < payEndAge) return `수령 시작 나이는 납입 종료 나이(${payEndAge}세) 이후여야 합니다.`;
   if (v.receiveEndAge <= v.receiveStartAge) return "수령 종료 나이는 수령 시작 나이보다 커야 합니다.";
-  if (v.deathAge < v.payStartAge) return "사망 가정 나이는 납입 시작 나이 이후여야 합니다.";
   if (v.depositRate < 0 || v.taxRate < 0 || v.taxRate >= 100) {
     return "금리와 세율 범위를 확인하세요.";
   }
+  return "";
+}
+
+function deathAgeValidation(v) {
+  if (v.deathAge === null) return "사망 가정 나이를 입력하면 계산됩니다.";
+  if (!Number.isFinite(v.deathAge)) return "사망 가정 나이는 숫자로 입력하세요.";
+  if (v.deathAge < v.payStartAge) return "사망 가정 나이는 납입 시작 나이 이후여야 합니다.";
   return "";
 }
 
@@ -225,10 +237,21 @@ function ageFromMonth(v, month) {
 }
 
 function formatAge(age) {
+  if (!Number.isFinite(age)) return "-";
   const years = Math.floor(age);
   const months = Math.round((age - years) * 12);
   if (months === 0) return `${years}세`;
   return `${years}세 ${months}개월`;
+}
+
+function setDeathComparisonUnavailable(message) {
+  output.deathLoss.textContent = "-";
+  output.deathLoss.classList.remove("loss", "gain");
+  output.deathLossDetail.textContent = message;
+  output.deathDepositValue.textContent = "-";
+  output.deathDepositDetail.textContent = "받은 돈 + 남은 예금 잔액";
+  output.deathInsuranceValue.textContent = "-";
+  output.deathInsuranceDetail.textContent = "사망 전까지 받은 연금";
 }
 
 function renderChart(depositSeries, insuranceSeries, v) {
@@ -358,9 +381,7 @@ function update() {
     output.insuranceReserve.textContent = "-";
     output.depositStartBalance.textContent = "-";
     output.reserveGap.textContent = "-";
-    output.deathLoss.textContent = "-";
-    output.deathDepositValue.textContent = "-";
-    output.deathInsuranceValue.textContent = "-";
+    setDeathComparisonUnavailable("다른 입력값을 먼저 확인하세요.");
     renderChart({ rows: [] }, { rows: [] }, { payStartAge: 0, payYears: 1, receiveStartAge: 1, receiveEndAge: 2 });
     return;
   }
@@ -392,9 +413,6 @@ function update() {
   const totalPaid = v.monthlyPremium * payMonths;
   const insuranceTotal = v.insurancePayout * receiveMonths;
   const reserveGap = depositStartBalance - insuranceSeries.receiveStartBalance;
-  const deathDeposit = simulateDepositUntilAge(v, v.depositRate, v.insurancePayout, v.deathAge);
-  const deathInsurance = insuranceReceivedUntilAge(v, v.deathAge);
-  const deathLoss = deathDeposit.value - deathInsurance.received;
   output.totalPaid.textContent = krw.format(totalPaid);
   output.totalPaidDetail.textContent = `${payMonths}개월 동안 ${krw.format(v.monthlyPremium)}씩 납입`;
   output.insuranceTotalReceived.textContent = krw.format(insuranceTotal);
@@ -408,13 +426,23 @@ function update() {
   output.depositStartBalanceDetail.textContent = `예금 연 ${v.depositRate}%, 세율 ${v.taxRate}% 적용`;
   output.reserveGap.textContent = krw.format(Math.abs(reserveGap));
   output.reserveGapDetail.textContent = reserveGap >= 0 ? "예금 잔액이 더 큽니다." : "예금 잔액이 부족합니다.";
-  output.deathLoss.textContent = krw.format(Math.abs(deathLoss));
-  output.deathLossDetail.textContent =
-    deathLoss >= 0 ? "예금이 이 금액만큼 더 유리합니다." : "연금보험이 이 금액만큼 더 유리합니다.";
-  output.deathDepositValue.textContent = krw.format(deathDeposit.value);
-  output.deathDepositDetail.textContent = `${formatAge(v.deathAge)} 기준, 수령 ${krw.format(deathDeposit.received)} + 잔액 ${krw.format(deathDeposit.balance)}`;
-  output.deathInsuranceValue.textContent = krw.format(deathInsurance.received);
-  output.deathInsuranceDetail.textContent = `${deathInsurance.months}개월 동안 ${krw.format(v.insurancePayout)}씩 수령`;
+  const deathValidation = deathAgeValidation(v);
+  if (deathValidation) {
+    setDeathComparisonUnavailable(deathValidation);
+  } else {
+    const deathDeposit = simulateDepositUntilAge(v, v.depositRate, v.insurancePayout, v.deathAge);
+    const deathInsurance = insuranceReceivedUntilAge(v, v.deathAge);
+    const deathLoss = deathDeposit.value - deathInsurance.received;
+    output.deathLoss.textContent = krw.format(Math.abs(deathLoss));
+    output.deathLoss.classList.toggle("loss", deathLoss >= 0);
+    output.deathLoss.classList.toggle("gain", deathLoss < 0);
+    output.deathLossDetail.textContent =
+      deathLoss >= 0 ? "예금이 이 금액만큼 더 유리합니다." : "연금보험이 이 금액만큼 더 유리합니다.";
+    output.deathDepositValue.textContent = krw.format(deathDeposit.value);
+    output.deathDepositDetail.textContent = `${formatAge(v.deathAge)} 기준, 수령 ${krw.format(deathDeposit.received)} + 잔액 ${krw.format(deathDeposit.balance)}`;
+    output.deathInsuranceValue.textContent = krw.format(deathInsurance.received);
+    output.deathInsuranceDetail.textContent = `${deathInsurance.months}개월 동안 ${krw.format(v.insurancePayout)}씩 수령`;
+  }
   renderChart(samePayout, insuranceSeries, v);
 }
 
