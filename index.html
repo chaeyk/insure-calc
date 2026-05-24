@@ -88,6 +88,14 @@
                 <em>%</em>
               </div>
             </label>
+
+            <label>
+              <span>사망 가정 나이</span>
+              <div class="field">
+                <input id="deathAge" type="number" min="0" step="1" value="80" />
+                <em>세</em>
+              </div>
+            </label>
           </div>
           <p id="validationMessage" class="validation" role="status"></p>
         </section>
@@ -158,6 +166,27 @@
                 <span>같은 종료 나이에 맞춘 예금 월 수령액</span>
                 <strong id="matchedDepositPayout">-</strong>
                 <p id="matchedDetail">비교 예금 금리 기준</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="result-section">
+            <h2>조기 사망 비교</h2>
+            <div class="results-grid three-up">
+              <article class="metric">
+                <span>예금 대비 손해</span>
+                <strong id="deathLoss">-</strong>
+                <p id="deathLossDetail">사망 후 연금 지급 및 환급 없음 가정</p>
+              </article>
+              <article class="metric">
+                <span>사망 시점 예금 가치</span>
+                <strong id="deathDepositValue">-</strong>
+                <p id="deathDepositDetail">받은 돈 + 남은 예금 잔액</p>
+              </article>
+              <article class="metric">
+                <span>사망 시점 연금 수령액</span>
+                <strong id="deathInsuranceValue">-</strong>
+                <p id="deathInsuranceDetail">사망 전까지 받은 연금</p>
               </article>
             </div>
           </section>

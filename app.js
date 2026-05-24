@@ -7,6 +7,7 @@ const defaults = {
   receiveEndAge: 100,
   depositRate: 3.5,
   taxRate: 15,
+  deathAge: 80,
 };
 
 const ids = Object.keys(defaults);
@@ -30,6 +31,12 @@ const output = {
   depositStartBalanceDetail: document.getElementById("depositStartBalanceDetail"),
   reserveGap: document.getElementById("reserveGap"),
   reserveGapDetail: document.getElementById("reserveGapDetail"),
+  deathLoss: document.getElementById("deathLoss"),
+  deathLossDetail: document.getElementById("deathLossDetail"),
+  deathDepositValue: document.getElementById("deathDepositValue"),
+  deathDepositDetail: document.getElementById("deathDepositDetail"),
+  deathInsuranceValue: document.getElementById("deathInsuranceValue"),
+  deathInsuranceDetail: document.getElementById("deathInsuranceDetail"),
   chart: document.getElementById("balanceChart"),
 };
 
@@ -54,6 +61,7 @@ function validate(v) {
   if (v.payYears <= 0) return "납입 기간은 1년 이상이어야 합니다.";
   if (v.receiveStartAge < payEndAge) return `수령 시작 나이는 납입 종료 나이(${payEndAge}세) 이후여야 합니다.`;
   if (v.receiveEndAge <= v.receiveStartAge) return "수령 종료 나이는 수령 시작 나이보다 커야 합니다.";
+  if (v.deathAge < v.payStartAge) return "사망 가정 나이는 납입 시작 나이 이후여야 합니다.";
   if (v.depositRate < 0 || v.taxRate < 0 || v.taxRate >= 100) {
     return "금리와 세율 범위를 확인하세요.";
   }
@@ -177,6 +185,39 @@ function solveMonthlyWithdrawal(v, annualGrossPercent) {
   const balance = balanceBeforeReceiving(v, annualGrossPercent);
   if (monthlyRate === 0) return balance / receiveMonths;
   return (balance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -receiveMonths));
+}
+
+function simulateDepositUntilAge(v, annualGrossPercent, monthlyWithdrawal, targetAge) {
+  const monthlyRate = monthlyNetRate(annualGrossPercent, v.taxRate);
+  const targetMonth = Math.max(0, monthsBetween(v.payStartAge, targetAge));
+  const payMonths = Math.round(v.payYears * 12);
+  const receiveStartMonth = monthsBetween(v.payStartAge, v.receiveStartAge);
+  const receiveEndMonth = monthsBetween(v.payStartAge, v.receiveEndAge);
+  let balance = 0;
+  let received = 0;
+
+  for (let month = 1; month <= targetMonth; month += 1) {
+    if (month <= payMonths) {
+      balance = balance * (1 + monthlyRate) + v.monthlyPremium;
+      continue;
+    }
+
+    balance *= 1 + monthlyRate;
+
+    if (month > receiveStartMonth && month <= receiveEndMonth && balance > 0) {
+      const actualWithdrawal = Math.min(monthlyWithdrawal, balance);
+      received += actualWithdrawal;
+      balance -= actualWithdrawal;
+    }
+  }
+
+  return { balance, received, value: balance + received };
+}
+
+function insuranceReceivedUntilAge(v, targetAge) {
+  const cappedAge = Math.min(targetAge, v.receiveEndAge);
+  const receivedMonths = Math.max(0, monthsBetween(v.receiveStartAge, cappedAge));
+  return { months: receivedMonths, received: receivedMonths * v.insurancePayout };
 }
 
 function ageFromMonth(v, month) {
@@ -317,6 +358,9 @@ function update() {
     output.insuranceReserve.textContent = "-";
     output.depositStartBalance.textContent = "-";
     output.reserveGap.textContent = "-";
+    output.deathLoss.textContent = "-";
+    output.deathDepositValue.textContent = "-";
+    output.deathInsuranceValue.textContent = "-";
     renderChart({ rows: [] }, { rows: [] }, { payStartAge: 0, payYears: 1, receiveStartAge: 1, receiveEndAge: 2 });
     return;
   }
@@ -348,6 +392,9 @@ function update() {
   const totalPaid = v.monthlyPremium * payMonths;
   const insuranceTotal = v.insurancePayout * receiveMonths;
   const reserveGap = depositStartBalance - insuranceSeries.receiveStartBalance;
+  const deathDeposit = simulateDepositUntilAge(v, v.depositRate, v.insurancePayout, v.deathAge);
+  const deathInsurance = insuranceReceivedUntilAge(v, v.deathAge);
+  const deathLoss = deathDeposit.value - deathInsurance.received;
   output.totalPaid.textContent = krw.format(totalPaid);
   output.totalPaidDetail.textContent = `${payMonths}개월 동안 ${krw.format(v.monthlyPremium)}씩 납입`;
   output.insuranceTotalReceived.textContent = krw.format(insuranceTotal);
@@ -361,6 +408,13 @@ function update() {
   output.depositStartBalanceDetail.textContent = `예금 연 ${v.depositRate}%, 세율 ${v.taxRate}% 적용`;
   output.reserveGap.textContent = krw.format(Math.abs(reserveGap));
   output.reserveGapDetail.textContent = reserveGap >= 0 ? "예금 잔액이 더 큽니다." : "예금 잔액이 부족합니다.";
+  output.deathLoss.textContent = krw.format(Math.abs(deathLoss));
+  output.deathLossDetail.textContent =
+    deathLoss >= 0 ? "예금이 이 금액만큼 더 유리합니다." : "연금보험이 이 금액만큼 더 유리합니다.";
+  output.deathDepositValue.textContent = krw.format(deathDeposit.value);
+  output.deathDepositDetail.textContent = `${formatAge(v.deathAge)} 기준, 수령 ${krw.format(deathDeposit.received)} + 잔액 ${krw.format(deathDeposit.balance)}`;
+  output.deathInsuranceValue.textContent = krw.format(deathInsurance.received);
+  output.deathInsuranceDetail.textContent = `${deathInsurance.months}개월 동안 ${krw.format(v.insurancePayout)}씩 수령`;
   renderChart(samePayout, insuranceSeries, v);
 }
 
